@@ -80,15 +80,22 @@ class CustomNetworkManager : public rtc::NetworkManagerBase
 public:
     void AddAddress(const string &addrstr)
     {
-        cout << addrstr << endl;
-        rtc::IPAddress addr;
-        rtc::IPFromString(addrstr, &addr);
-        auto test2 = rtc::TruncateIP(addr, 24);
-        auto test = test2.ToString();
+        rtc::SocketAddress sockaddr;
+        if (!sockaddr.FromString(addrstr))
+        {
+
+        }
+
+        auto ipaddr = sockaddr.ipaddr();
+        int prefixLength;
+        if (ipaddr.family() == AF_INET6)
+            prefixLength = 64;
+        else
+            prefixLength = 32;
 
         std::vector<rtc::Network*> networks;
-        auto net = make_unique<rtc::Network>("local", "local", rtc::TruncateIP(addr, 24), 24);
-        net->AddIP(addr);
+        auto net = make_unique<rtc::Network>("host", "host", ipaddr, prefixLength);
+        net->AddIP(ipaddr);
         networks.push_back(net.release());
 
         bool changed;
@@ -116,8 +123,11 @@ void OnDataChannelCreated(webrtc::DataChannelInterface* channel)
 // Callback for when the STUN server responds with the ICE candidates.
 void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
 {
-    std::string candidate_str;
-    candidate->ToString(&candidate_str);
+    auto cand = candidate->candidate();
+    auto addr = cand.address();
+    addr.SetIP("34.213.210.209"); // public IP
+    cand.set_address(addr);
+    std::string candidate_str = cand.ToString();
     rapidjson::Document message_object;
     message_object.SetObject();
     message_object.AddMember("type", "candidate", message_object.GetAllocator());
@@ -182,7 +192,9 @@ void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, mes
     std::string type = message_object["type"].GetString();
     if (type == "offer") {
         auto conn = s->get_con_from_hdl(hdl);
-        network_manager.AddAddress(conn->get_host());
+        auto localAddres = conn->get_socket().local_endpoint().address();
+        //network_manager.AddAddress(localAddres.to_string());
+        network_manager.AddAddress("172.31.46.189");
 
         std::string sdp = message_object["payload"]["sdp"].GetString();
         webrtc::PeerConnectionInterface::RTCConfiguration configuration;
@@ -227,7 +239,7 @@ void SignalThreadEntry()
 // Main entry point of the code.
 int main()
 {
-    rtc::LogMessage::LogToDebug(rtc::LoggingSeverity::LS_NONE);
+    rtc::LogMessage::LogToDebug(rtc::LoggingSeverity::LS_ERROR);
     webrtc_thread = std::thread(SignalThreadEntry);
     // In a real game server, you would run the WebSocket server as a separate thread so your main
     // process can handle the game loop.
