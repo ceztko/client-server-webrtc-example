@@ -14,9 +14,15 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <webrtc/api/peerconnectioninterface.h>
+#include <webrtc/pc/peerconnectionfactory.h>
 #include <webrtc/base/physicalsocketserver.h>
+#include <webrtc/base/fakenetwork.h>
 #include <webrtc/base/ssladapter.h>
 #include <webrtc/base/thread.h>
+#include <webrtc/p2p/client/basicportallocator.h>
+#include "webrtc/p2p/base/basicpacketsocketfactory.h"
+#include "webrtc/api/audio_codecs/builtin_audio_decoder_factory.h"
+#include "webrtc/api/audio_codecs/builtin_audio_encoder_factory.h"
 
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
@@ -64,6 +70,39 @@ DataChannelObserver data_channel_observer(OnDataChannelMessage);
 CreateSessionDescriptionObserver create_session_description_observer(OnAnswerCreated);
 // The observer that responds to session description set events. We don't really use this one here.
 SetSessionDescriptionObserver set_session_description_observer;
+std::unique_ptr<rtc::BasicPacketSocketFactory> socket_factory;
+std::unique_ptr<rtc::Thread> network_thread;
+std::unique_ptr<rtc::Thread> worker_thread;
+std::unique_ptr<cricket::BasicPortAllocator> port_allocator;
+
+class CustomNetworkManager : public rtc::NetworkManagerBase
+{
+public:
+    CustomNetworkManager()
+    {
+        rtc::IPAddress addr;
+        rtc::IPFromString("192.168.56.1", &addr);
+        auto test2 = rtc::TruncateIP(addr, 24);
+        auto test = test2.ToString();
+
+        std::vector<rtc::Network*> networks;
+        auto net = make_unique<rtc::Network>("local", "local", rtc::TruncateIP(addr, 24), 24);
+        net->AddIP(addr);
+        networks.push_back(net.release());
+
+        bool changed;
+        MergeNetworkList(networks, &changed);
+
+    }
+
+    void StartUpdating() override
+    {
+        SignalNetworksChanged();
+    }
+    void StopUpdating() override { }
+};
+
+CustomNetworkManager network_manager;
 
 
 // Callback for when the data channel is successfully created. We need to re-register the updated
@@ -85,7 +124,8 @@ void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
     rapidjson::Value candidate_value;
     candidate_value.SetString(rapidjson::StringRef(candidate_str.c_str()));
     rapidjson::Value sdp_mid_value;
-    sdp_mid_value.SetString(rapidjson::StringRef(candidate->sdp_mid().c_str()));
+    //sdp_mid_value.SetString(rapidjson::StringRef(candidate->sdp_mid().c_str()));
+    sdp_mid_value.SetString(rapidjson::StringRef("data")); // FIXME hardcoded
     rapidjson::Value message_payload;
     message_payload.SetObject();
     message_payload.AddMember("candidate", candidate_value, message_object.GetAllocator());
@@ -144,7 +184,8 @@ void OnWebSocketMessage(WebSocketServer* /* s */, websocketpp::connection_hdl hd
         std::string sdp = message_object["payload"]["sdp"].GetString();
         webrtc::PeerConnectionInterface::RTCConfiguration configuration;
 
-        peer_connection = peer_connection_factory->CreatePeerConnection(configuration, nullptr, nullptr,
+        auto allocator = std::make_unique<cricket::BasicPortAllocator>(&network_manager, socket_factory.get());
+        peer_connection = peer_connection_factory->CreatePeerConnection(configuration, std::move(allocator), nullptr,
                           &peer_connection_observer);
         webrtc::DataChannelInit data_channel_config;
         data_channel = peer_connection->CreateDataChannel("dc", &data_channel_config);
@@ -164,16 +205,25 @@ void SignalThreadEntry()
 {
     // Create the PeerConnectionFactory.
     rtc::InitializeSSL();
-    peer_connection_factory = webrtc::CreatePeerConnectionFactory();
-    rtc::Thread* signaling_thread = rtc::Thread::Current();
+
+    network_thread.reset(rtc::Thread::CreateWithSocketServer().release());
+    worker_thread.reset(rtc::Thread::Create().release());
+    rtc::Thread *signaling_thread = rtc::Thread::Current();
+    network_thread->Start();
+    worker_thread->Start();
+    peer_connection_factory = webrtc::CreatePeerConnectionFactory(network_thread.get(), worker_thread.get(), signaling_thread,
+        nullptr,
+        webrtc::CreateBuiltinAudioEncoderFactory(),
+        webrtc::CreateBuiltinAudioDecoderFactory(),
+        nullptr, nullptr);
+
+    socket_factory.reset(new rtc::BasicPacketSocketFactory(network_thread.get()));
     signaling_thread->Run();
-    cout << "Test" << endl;
 }
 
 // Main entry point of the code.
 int main()
 {
-    cout << "test" <<  endl;
     webrtc_thread = std::thread(SignalThreadEntry);
     // In a real game server, you would run the WebSocket server as a separate thread so your main
     // process can handle the game loop.

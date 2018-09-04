@@ -10,7 +10,7 @@
  */
 
 // URL to the server with the port we are using for WebSockets.
-const webSocketUrl = 'ws://192.168.1.91:8080';
+const webSocketUrl = 'ws://192.168.56.1:8080';
 // The WebSocket object used to manage a connection.
 let webSocketConnection = null;
 // The RTCPeerConnection through which we engage in the SDP handshake.
