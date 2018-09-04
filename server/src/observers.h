@@ -19,27 +19,27 @@ class PeerConnectionObserver : public webrtc::PeerConnectionObserver {
         on_data_channel{on_data_channel}, on_ice_candidate{on_ice_candidate} {}
 
     // Override signaling change.
-    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState /* new_state */) {}
+    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState /* new_state */) override {}
 
     // Override adding a stream.
-    void OnAddStream(webrtc::MediaStreamInterface* /* stream */) {}
+    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> ) override {}
 
     // Override removing a stream.
-    void OnRemoveStream(webrtc::MediaStreamInterface* /* stream */) {}
+    void OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface>) override {}
 
     // Override data channel change.
-    void OnDataChannel(webrtc::DataChannelInterface* channel) {
+    void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override {
       on_data_channel(channel);
     }
 
     // Override renegotiation.
-    void OnRenegotiationNeeded() {}
+    void OnRenegotiationNeeded() override {}
 
     // Override ICE connection change.
-    void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState /* new_state */) {}
+    void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState /* new_state */) override {}
 
     // Override ICE gathering change.
-    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState /* new_state */) {}
+    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState /* new_state */) override {}
 
     // Override ICE candidate.
     void OnIceCandidate(const webrtc::IceCandidateInterface* candidate) {
@@ -59,15 +59,15 @@ class DataChannelObserver : public webrtc::DataChannelObserver {
         on_message{on_message} {}
 
     // Change in state of the Data Channel.
-    void OnStateChange() {}
+    void OnStateChange() override {}
     
     // Message received.
-    void OnMessage(const webrtc::DataBuffer& buffer) {
+    void OnMessage(const webrtc::DataBuffer& buffer) override {
       on_message(buffer);
     }
 
     // Buffered amount change.
-    void OnBufferedAmountChange(uint64_t /* previous_amount */) {}
+    void OnBufferedAmountChange(uint64_t /* previous_amount */) override {}
 
   private:
     std::function<void(const webrtc::DataBuffer&)> on_message;
