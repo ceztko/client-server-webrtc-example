@@ -21,10 +21,13 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/target/include")
 if (MSVC)
-    link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/target/lib/Debug")
-    link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/target/lib/Release")
+    set(WEBRTC_LIBRARIES
+        debug "${CMAKE_CURRENT_SOURCE_DIR}/deps/target/lib/Debug/webrtc.lib"
+        optimized "${CMAKE_CURRENT_SOURCE_DIR}/deps/target/lib/Release/webrtc.lib"
+    )
 else()
     link_directories("${CMAKE_CURRENT_SOURCE_DIR}/deps/target/lib")
+    set(WEBRTC_LIBRARIES webrtc)
 endif()
 
 include_directories("src/")
@@ -37,4 +40,4 @@ file(GLOB PROJECT_CONFIGS CMakeLists.txt
                          .gitmodules)
 
 add_executable(server src/main.cpp src/observers.h)
-target_link_libraries(server ${Boost_LIBRARIES} webrtc Secur32 Msdmo Winmm Dmoguids wmcodecdspuuid)
+target_link_libraries(server ${Boost_LIBRARIES} ${WEBRTC_LIBRARIES} Secur32 Msdmo Winmm Dmoguids wmcodecdspuuid)
