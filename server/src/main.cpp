@@ -78,10 +78,11 @@ std::unique_ptr<cricket::BasicPortAllocator> port_allocator;
 class CustomNetworkManager : public rtc::NetworkManagerBase
 {
 public:
-    CustomNetworkManager()
+    void AddAddress(const string &addrstr)
     {
+        cout << addrstr << endl;
         rtc::IPAddress addr;
-        rtc::IPFromString("192.168.56.1", &addr);
+        rtc::IPFromString(addrstr, &addr);
         auto test2 = rtc::TruncateIP(addr, 24);
         auto test = test2.ToString();
 
@@ -92,7 +93,6 @@ public:
 
         bool changed;
         MergeNetworkList(networks, &changed);
-
     }
 
     void StartUpdating() override
@@ -173,7 +173,7 @@ void OnAnswerCreated(webrtc::SessionDescriptionInterface* desc)
 }
 
 // Callback for when the WebSocket server receives a message from the client.
-void OnWebSocketMessage(WebSocketServer* /* s */, websocketpp::connection_hdl hdl, message_ptr msg)
+void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, message_ptr msg)
 {
     websocket_connection_handler = hdl;
     rapidjson::Document message_object;
@@ -181,6 +181,9 @@ void OnWebSocketMessage(WebSocketServer* /* s */, websocketpp::connection_hdl hd
     // Probably should do some error checking on the JSON object.
     std::string type = message_object["type"].GetString();
     if (type == "offer") {
+        auto conn = s->get_con_from_hdl(hdl);
+        network_manager.AddAddress(conn->get_host());
+
         std::string sdp = message_object["payload"]["sdp"].GetString();
         webrtc::PeerConnectionInterface::RTCConfiguration configuration;
 
@@ -224,6 +227,7 @@ void SignalThreadEntry()
 // Main entry point of the code.
 int main()
 {
+    rtc::LogMessage::LogToDebug(rtc::LoggingSeverity::LS_NONE);
     webrtc_thread = std::thread(SignalThreadEntry);
     // In a real game server, you would run the WebSocket server as a separate thread so your main
     // process can handle the game loop.
