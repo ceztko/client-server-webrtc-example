@@ -6,8 +6,6 @@
 //
 // Author: brian@brkho.com
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
 #include "observers.h"
 
 #include <rapidjson/document.h>
@@ -69,53 +67,17 @@ DataChannelObserver data_channel_observer(OnDataChannelMessage);
 // The observer that responds to session description creation events.
 CreateSessionDescriptionObserver create_session_description_observer(OnAnswerCreated);
 // The observer that responds to session description set events. We don't really use this one here.
-SetSessionDescriptionObserver set_session_description_observer;
 std::unique_ptr<rtc::BasicPacketSocketFactory> socket_factory;
+SetSessionDescriptionObserver set_session_description_observer;
 std::unique_ptr<rtc::Thread> network_thread;
 std::unique_ptr<rtc::Thread> worker_thread;
-std::unique_ptr<cricket::BasicPortAllocator> port_allocator;
-
-class CustomNetworkManager : public rtc::NetworkManagerBase
-{
-public:
-    void AddAddress(const string &addrstr)
-    {
-        rtc::SocketAddress sockaddr;
-        if (!sockaddr.FromString(addrstr))
-        {
-
-        }
-
-        auto ipaddr = sockaddr.ipaddr();
-        int prefixLength;
-        if (ipaddr.family() == AF_INET6)
-            prefixLength = 64;
-        else
-            prefixLength = 32;
-
-        std::vector<rtc::Network*> networks;
-        auto net = make_unique<rtc::Network>("host", "host", ipaddr, prefixLength);
-        net->AddIP(ipaddr);
-        networks.push_back(net.release());
-
-        bool changed;
-        MergeNetworkList(networks, &changed);
-    }
-
-    void StartUpdating() override
-    {
-        SignalNetworksChanged();
-    }
-    void StopUpdating() override { }
-};
-
-CustomNetworkManager network_manager;
-
+rtc::BasicNetworkManager network_manager;
 
 // Callback for when the data channel is successfully created. We need to re-register the updated
 // data channel here.
 void OnDataChannelCreated(webrtc::DataChannelInterface* channel)
 {
+    cout << "OnDataChannelCreated" << endl;
     data_channel = channel;
     data_channel->RegisterObserver(&data_channel_observer);
 }
@@ -123,11 +85,8 @@ void OnDataChannelCreated(webrtc::DataChannelInterface* channel)
 // Callback for when the STUN server responds with the ICE candidates.
 void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
 {
-    auto cand = candidate->candidate();
-    auto addr = cand.address();
-    addr.SetIP("34.213.210.209"); // public IP
-    cand.set_address(addr);
-    std::string candidate_str = cand.ToString();
+    std::string candidate_str;
+    candidate->ToString(&candidate_str);
     rapidjson::Document message_object;
     message_object.SetObject();
     message_object.AddMember("type", "candidate", message_object.GetAllocator());
@@ -148,13 +107,12 @@ void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
     message_object.Accept(writer);
     std::string payload = strbuf.GetString();
     ws_server.send(websocket_connection_handler, payload, websocketpp::frame::opcode::value::text);
-    (void)candidate;
 }
 
 // Callback for when the server receives a message on the data channel.
 void OnDataChannelMessage(const webrtc::DataBuffer& buffer)
 {
-    (void)buffer;
+    cout << "OnDataChannelMessage" << endl;
     data_channel->Send(buffer);
 }
 
@@ -191,26 +149,44 @@ void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, mes
     // Probably should do some error checking on the JSON object.
     std::string type = message_object["type"].GetString();
     if (type == "offer") {
-        auto conn = s->get_con_from_hdl(hdl);
-        auto localAddres = conn->get_socket().local_endpoint().address();
-        //network_manager.AddAddress(localAddres.to_string());
-        network_manager.AddAddress("172.31.46.189");
-
         std::string sdp = message_object["payload"]["sdp"].GetString();
         webrtc::PeerConnectionInterface::RTCConfiguration configuration;
-
+        webrtc::PeerConnectionInterface::IceServer ice_server;
+        ice_server.uri = "stun:stun01.sipphone.com'";
+        configuration.servers.push_back(ice_server);
+        ice_server.uri = "stun:iphone-stun.strato-iphone.de:3478";
+        configuration.servers.push_back(ice_server);
         auto allocator = std::make_unique<cricket::BasicPortAllocator>(&network_manager, socket_factory.get());
         peer_connection = peer_connection_factory->CreatePeerConnection(configuration, std::move(allocator), nullptr,
                           &peer_connection_observer);
-        webrtc::DataChannelInit data_channel_config;
-        data_channel = peer_connection->CreateDataChannel("dc", &data_channel_config);
-        data_channel->RegisterObserver(&data_channel_observer);
+
+        //webrtc::DataChannelInit data_channel_config;
+        //data_channel_config.ordered = false;
+        //data_channel_config.maxRetransmits = 0;
+        //data_channel = peer_connection->CreateDataChannel("dc", &data_channel_config);
+        //data_channel->RegisterObserver(&data_channel_observer);
 
         webrtc::SdpParseError error;
         webrtc::SessionDescriptionInterface* session_description(
             webrtc::CreateSessionDescription("offer", sdp, &error));
         peer_connection->SetRemoteDescription(&set_session_description_observer, session_description);
         peer_connection->CreateAnswer(&create_session_description_observer, nullptr);
+    } else if (type == "candidate") {
+        std::string candidate = message_object["payload"]["candidate"].GetString();
+        std::string sdp_mid = message_object["payload"]["sdpMid"].GetString();
+        int sdp_mline_index = message_object["payload"]["sdpMLineIndex"].GetInt();
+        cout << candidate << ", sdpMid " << sdp_mid << ", sdpMLineIndex " << sdp_mline_index << endl;
+
+        webrtc::SdpParseError error;
+        auto candidate_object = webrtc::CreateIceCandidate(sdp_mid, sdp_mline_index, candidate, &error);
+        if (error.description.length() != 0)
+            cout << "ERROR CreateIceCandidate" << error.description << endl;
+        if (!peer_connection->AddIceCandidate(candidate_object))
+            cout << "ERROR AddIceCandidate" << error.description << endl;
+    }
+    else
+    {
+        std::cout << "Unrecognized WebSocket message type." << std::endl;
     }
 }
 

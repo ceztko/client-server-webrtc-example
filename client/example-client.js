@@ -10,7 +10,7 @@
  */
 
 // URL to the server with the port we are using for WebSockets.
-const webSocketUrl = 'ws://192.168.56.1:8080';
+const webSocketUrl = 'ws://34.213.210.209:8080';
 // The WebSocket object used to manage a connection.
 let webSocketConnection = null;
 // The RTCPeerConnection through which we engage in the SDP handshake.
@@ -23,25 +23,46 @@ function onDataChannelMessage(event) {
   console.log('DataChannelMessage');
 }
 
-// Callback for when the data channel was successfully opened.
-function onDataChannelOpen() {
+function onDataChannelOpen(event) {
   console.log('DataChannelOpen');
   dataChannel.send("Test");
 }
 
+function onDataChannelError(error) {
+  console.log('DataChannel Error : ' + error);
+}
+
+// Callback for when the STUN server responds with the ICE candidates.
+function onIceCandidate(event) {
+  if (event && event.candidate) {
+    webSocketConnection.send(JSON.stringify({type: 'candidate', payload: event.candidate}));
+    console.log(event.candidate)
+  }
+}
+
 // Callback for when the SDP offer was successfully created.
-function onOfferCreated(description) {
+function onOfferFulfilled(description) {
   rtcPeerConnection.setLocalDescription(description);
   webSocketConnection.send(JSON.stringify({type: 'offer', payload: description}));
 }
 
+function onOfferRejected(reason) {
+    console.log(reason)
+}
+
 // Callback for when the WebSocket is successfully opened.
 function onWebSocketOpen() {
-  rtcPeerConnection = new RTCPeerConnection();
-  dataChannel = rtcPeerConnection.createDataChannel('dc');
+  const config = { iceServers: [{ urls: ["stun:iphone-stun.strato-iphone.de:3478", "stun:stun01.sipphone.com"] }] };
+  rtcPeerConnection = new RTCPeerConnection(config);
+  const dataChannelConfig = { ordered: false, maxRetransmits: 0 };
+  dataChannel = rtcPeerConnection.createDataChannel('dc', dataChannelConfig);
   dataChannel.onmessage = onDataChannelMessage;
   dataChannel.onopen = onDataChannelOpen;
-  rtcPeerConnection.createOffer(onOfferCreated, () => {});
+  dataChannel.onerror = onDataChannelError;
+  rtcPeerConnection.ondatachannel = onDataChannelOpen
+  rtcPeerConnection.onicecandidate = onIceCandidate;
+  rtcPeerConnection.oniceconnectionstatechange = e => console.log(rtcPeerConnection.iceConnectionState);
+  rtcPeerConnection.createOffer().then(onOfferFulfilled, onOfferRejected);
 }
 
 // Callback for when we receive a message from the server via the WebSocket.
@@ -49,13 +70,12 @@ function onWebSocketMessage(event) {
   const messageObject = JSON.parse(event.data);
   if (messageObject.type === 'answer') {
     rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(messageObject.payload));
-  } else if (messageObject.type === 'candidate') { 
-    try {
-        rtcPeerConnection.addIceCandidate(new RTCIceCandidate(messageObject.payload));
-    }
-    catch(error) {
-      console.error(error);
-    }
+  } else if (messageObject.type === 'candidate') {
+    let cand = new RTCIceCandidate(messageObject.payload)
+    if (!cand.candidate.includes("34.213.210.209"))
+        return;
+    rtcPeerConnection.addIceCandidate(cand);
+    console.log(messageObject.payload)
   }
 }
 

@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 project(example-server)
+include(helpers) # Helpers needs to be loaded after project directive
 
 if (MSVC)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
@@ -34,10 +37,4 @@ include_directories("src/")
 include_directories("lib/")
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-file(GLOB PROJECT_CONFIGS CMakeLists.txt
-                         .gitattributes
-                         .gitignore
-                         .gitmodules)
-
-add_executable(server src/main.cpp src/observers.h)
-target_link_libraries(server ${Boost_LIBRARIES} ${WEBRTC_LIBRARIES} Secur32 Msdmo Winmm Dmoguids wmcodecdspuuid)
+add_subdirectory(src)
