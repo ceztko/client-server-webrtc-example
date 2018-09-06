@@ -1,0 +1,220 @@
+<!-- Originated from https://github.com/emannion/webrtc-audio-video -->
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Source - WebRTC Demo</title>  
+
+  <style>
+    h1, h2, h3 {
+      background: rgb(238, 238, 238);
+      border-bottom-width: 1px;
+      display: block;
+      margin-top: 0;
+      padding: .2em;
+      text-align: center;
+    }
+    .video {
+      width: 320px; 
+      height: 240px; 
+      border: 1px solid black;
+    }
+    .left-section {
+      float: left;
+    }
+    .buttons-section {
+      position: absolute;
+      float: left;
+    }
+  </style>
+
+</head>
+<body>
+
+  <h1>WebRTC video source</h1>
+  <div class="left-section">
+  <h3>Local Video</h3>
+  <video class="video" id="localvideo" autoplay controls></video>
+    <div class="buttons-left-section">
+      <input type="text" id="hostname" value="192.168.1.90">
+      <button type="button" onclick="connect();">Connect</button>
+      <button type="button" onclick="disconnect();">Disconnect</button>
+    </div>
+  </div>
+
+  <script>
+  
+  var localvid = document.getElementById("localvideo");
+  var localStream = null;
+  var pc = null;
+  var socket = null;
+  var useH264 = true;
+  
+  startMedia();  
+  
+  function startMedia()
+  {
+    // Prefer camera resolution nearest to 1280x720.
+    var constraints = { audio: false, video: { width: 1280, height: 720 } };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(function(stream) {
+        localStream = stream;
+        try
+        {
+          localvid.srcObject = stream;
+          localvid.play();
+        }
+        catch(e)
+        {
+          console.log("Error setting video src: ", e);
+        }
+      })
+      .catch(function(err) {
+        console.log(err.name + ": " + err.message);
+        if (location.protocol === "http:")
+          alert("Please test this using HTTPS.");
+        else
+          alert("Have you enabled the appropriate flag? see README.md");
+          
+        console.error(e);
+      });
+  }
+
+  // stop local video
+  function stopMedia()
+  {
+    localvid.srcObject = null;
+    localStream.getVideoTracks()[0].stop();
+  }
+
+  function useH264Codec(sdp)
+  {
+    var isFirefox = typeof InstallTrigger !== "undefined";
+    if (isFirefox)
+        updated_sdp = sdp.replace("m=video 9 UDP/TLS/RTP/SAVPF 120 126 97\r\n","m=video 9 UDP/TLS/RTP/SAVPF 126 120 97\r\n");
+    else
+        updated_sdp = sdp.replace("m=video 9 UDP/TLS/RTP/SAVPF 100 101 107 116 117 96 97 99 98\r\n","m=video 9 UDP/TLS/RTP/SAVPF 107 101 100 116 117 96 97 99 98\r\n");
+
+    return updated_sdp;
+  }
+
+  function setLocalDescAndSendMessageOffer(sessionDescription)
+  {
+    if (useH264)
+    {
+      // use H264 video codec in offer every time
+      sessionDescription.sdp = useH264Codec(sessionDescription.sdp); 
+    }
+
+    pc.setLocalDescription(sessionDescription);
+
+    console.log("Sending SDP offer: ");
+    console.log(sessionDescription);
+
+    socket.send(JSON.stringify({
+      "messageType": "offer",
+      "peerDescription": sessionDescription
+    }));
+  }
+
+  function onCreateOfferFailed()
+  {
+    console.log("Create Offer failed");
+  }
+
+  // start the connection on button click 
+  function connect()
+  {
+    let host = document.getElementById("hostname").value;
+    let serverLoc = "wss://" + host + ":443/";
+    socket = new WebSocket(serverLoc);
+    socket.onmessage = onWebSocketMessage;
+    socket.onerror = function(event) {
+      console.error("WebSocket error:", event);
+    };
+    socket.onopen = function(event) {
+      createPeerConnection();
+      pc.createOffer(setLocalDescAndSendMessageOffer, onCreateOfferFailed);
+    };
+  };
+
+  // stop the connection on button click 
+  function disconnect()
+  {
+    console.log("disconnect.");    
+    socket.send(JSON.stringify({ messageType: "bye" }));
+    stop();
+  }
+
+  function stop()
+  {
+    pc.close();
+    pc = null;
+    stopMedia();
+  }
+
+  // process messages from web socket 
+  function onWebSocketMessage(evt)
+  {
+    var message = JSON.parse(evt.data);
+
+    if (message.messageType === "answer")
+    {
+      console.log("Received answer...");
+      console.log("Setting remote session description..." );
+      var remoteDescription = message.peerDescription;
+      pc.setRemoteDescription(new RTCSessionDescription(remoteDescription));
+
+    }
+    else if (message.messageType === "iceCandidate")
+    {
+      console.log("Received ICE candidate...");
+      var candidate = new RTCIceCandidate(message.candidate);
+      pc.addIceCandidate(candidate);
+    }
+    else if (message.messageType === "bye")
+    {
+      console.log("Received bye");
+      stop();
+    }
+  }
+
+  function createPeerConnection()
+  {
+    console.log("Creating peer connection");
+    var config = { "iceServers": [] };
+    try
+    {
+      pc = new RTCPeerConnection(config);
+    }
+    catch (e)
+    {
+      console.log("Failed to create PeerConnection, exception: " + e.message);
+    }
+    // send any ice candidates to the other peer
+    pc.onicecandidate = onIceCandidate;
+    console.log("Adding local stream...");
+    pc.addStream(localStream);
+  }
+  
+  function onIceCandidate(evt)
+  {
+    if (evt.candidate)
+    {
+      console.log("Sending ICE candidate...");
+      console.log(evt.candidate);
+      socket.send(JSON.stringify({
+        "messageType": "iceCandidate",
+        "candidate": evt.candidate 
+      }));   
+    }
+    else
+    {
+      console.log("End of candidates.");
+    }
+  }
+  
+  </script>
+</body>
+</html>
