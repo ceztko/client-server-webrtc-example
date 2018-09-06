@@ -19,19 +19,18 @@ A simple WebRTC Video Source to Sink sample using web socket transport:
   -  openssl genrsa -out webrtcwwsocket-key.pem 1024
   -  openssl req -new -key webrtcwwsocket-key.pem -out webrtcwwsocket-csr.pem
   -  openssl x509 -req -in webrtcwwsocket-csr.pem -signkey webrtcwwsocket-key.pem -out webrtcwwsocket-cert.pem
-- run  'sudo node app.js'
+- run  'sudo node relay-server.js'
 - You may get errors, if you do then install WebSocket in that folder, e.g. 'sudo npm install websocket'
 
 
 ####  Client Steps
 
 - Open video-source.html in one browser. This will be the Source endpoint;
-- From another browser tab/window point to https://\<your ip address\> . Accept self signed certs.
-Thi will be the Sink endpoint;
+- From another browser tab/window point to https://\<your ip address\> . Accept self signed certs. This will be the Sink endpoint;
 - Connect from the Source endpoint.
 
 #### References
 
-Mostly taken from [1]
+Mostly derived from [1]
 
 [1] https://github.com/emannion/webrtc-audio-video
