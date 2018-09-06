@@ -126,8 +126,8 @@
     }
     // send any ice candidates to the other peer
     pc.onicecandidate = onIceCandidate;
-    pc.onaddstream = onRemoteStreamAdded; // Deprecated
-    pc.onremovestream = onRemoteStreamRemoved; // Deprecated
+
+    pc.ontrack = onTrackEvent;
   }
 
   function onIceCandidate(evt)
@@ -148,18 +148,25 @@
     }
   }
 
-  // when remote adds a stream, hand it on to the local video element
-  function onRemoteStreamAdded(evt)
+  function onTrackEvent(event)
   {
-    console.log("Added remote stream");
-    remotevid.srcObject = evt.stream;
+    if (event.streams.length != 0)
+    {
+      console.log("Added remote stream");
+      let stream = event.streams[0];
+      stream.ontrackremoved = onTrackRemoved;
+      remotevid.srcObject = stream;
+    }
   }
 
   // when remote removes a stream, remove it from the local video element
-  function onRemoteStreamRemoved(evt)
+  function onTrackRemoved(event)
   {
-    console.log("Remove remote stream");
-    remotevid.srcObject = null;
+    if (remote.getTracks().length == 0)
+    {
+      console.log("Remove remote stream");
+      remotevid.srcObject = null;
+    }
   }
 
   </script>

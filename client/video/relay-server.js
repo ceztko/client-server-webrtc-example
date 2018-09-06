@@ -13,7 +13,7 @@ var options = {
 };
 
 var server = https.createServer(options, function(request, response) {
-  fs.readFile(__dirname + '/video-sinc.html',
+  fs.readFile(__dirname + '/video-sink.html',
   function (err, data) {
     if (err) {
       response.writeHead(500);
