@@ -33,8 +33,8 @@ else()
     set(WEBRTC_LIBRARIES webrtc)
 endif()
 
-include_directories("src/")
-include_directories("lib/")
+include_directories(src)
+include_directories(third_party)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(src)
