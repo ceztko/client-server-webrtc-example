@@ -159,10 +159,13 @@ void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, mes
     if (type == "offer") {
         std::string sdp = message_object["payload"]["sdp"].GetString();
         webrtc::PeerConnectionInterface::RTCConfiguration configuration;
+        // NOTE: Two stun servers, with two different ip addresses binded
+        // to different tcp ports are needed in the general case
+        // https://stackoverflow.com/questions/7594390/why-a-stun-server-needs-two-different-public-ip-addresses
         webrtc::PeerConnectionInterface::IceServer ice_server;
-        ice_server.uri = "stun:stun01.sipphone.com'";
+        ice_server.uri = "stun:stun1.l.google.com:19302";
         configuration.servers.push_back(ice_server);
-        ice_server.uri = "stun:iphone-stun.strato-iphone.de:3478";
+        ice_server.uri = "stun:stun2.l.google.com:19305";
         configuration.servers.push_back(ice_server);
         auto allocator = std::make_unique<cricket::BasicPortAllocator>(&network_manager, socket_factory.get());
         peer_connection = peer_connection_factory->CreatePeerConnection(configuration, std::move(allocator), nullptr,

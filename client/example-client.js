@@ -52,9 +52,10 @@ function onOfferRejected(reason) {
 
 // Callback for when the WebSocket is successfully opened.
 function onWebSocketOpen() {
-    // NOTE: STUN servers may not work in some circustances. If ICE connection can't be established,
-    // try to change them
-    const config = { iceServers: [{ urls: ["stun:iphone-stun.strato-iphone.de:3478", "stun:stun01.sipphone.com"]  }] };
+    // NOTE: Two stun servers, with two different ip addresses binded
+    // to different tcp ports are needed in the general case
+    // https://stackoverflow.com/questions/7594390/why-a-stun-server-needs-two-different-public-ip-addresses
+    const config = { iceServers: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19305" ] }] };
     rtcPeerConnection = new RTCPeerConnection(config);
     //For reference, check https://hpbn.co/webrtc/
     const dataChannelConfig = { ordered: false, maxRetransmits: 0 };
