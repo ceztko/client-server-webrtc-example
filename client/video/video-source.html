@@ -36,9 +36,20 @@
   <h3>Local Video</h3>
   <video class="video" id="localvideo" autoplay controls></video>
     <div class="buttons-left-section">
-      <input type="text" id="hostname" value="192.168.1.90">
-      <button type="button" onclick="connect();">Connect</button>
-      <button type="button" onclick="disconnect();">Disconnect</button>
+      <div>
+        <label>https</label>
+        <input type="checkbox" id="usehttps" />
+      </div>
+      <div>
+        <label>host</label>
+        <input type="text" id="hostname" />
+      </div>
+      <div>
+        <label>port</label>
+        <input type="text" id="port" />
+      </div>
+      <button type="button" onclick="onBtnConnectClick();">Connect</button>
+      <button type="button" onclick="onBtnDisconnectClick();">Disconnect</button>
     </div>
   </div>
 
@@ -49,9 +60,36 @@
   var pc = null;
   var socket = null;
   var useH264 = true;
+  var $ = function( id ) { return document.getElementById( id ); };
   
-  startMedia();  
+  window.onload = onLoad();
   
+  function onLoad()
+  {
+    $("hostname").value = localStorage.getItem('hostname');
+    $("port").value = localStorage.getItem('hostname');
+    let checked = localStorage.getItem('usehttps');
+    $("usehttps").checked = checked === "true" ? true : false;
+    startMedia();  
+  }
+  
+  function onBtnConnectClick()
+  {
+    let hostname = $("hostname").value;
+    let port = $("port").value;
+    let usehttps = $("usehttps").checked;
+    localStorage['hostname'] = $("hostname").value;
+    localStorage['hostname'] = $("port").value;
+    localStorage['usehttps'] = $("usehttps").checked;
+    
+    connect(hostname, port, usehttps);
+  }
+
+  function onBtnDisconnectClick()
+  {
+    disconnect();
+  }
+
   function startMedia()
   {
     // Prefer camera resolution nearest to 1280x720.
@@ -124,10 +162,10 @@
   }
 
   // start the connection on button click 
-  function connect()
+  function connect(hostname, port, usehttps)
   {
-    let host = document.getElementById("hostname").value;
-    let serverLoc = "wss://" + host + ":443/";
+    let protoPrefix = usehttps ? "wss://" : "ws://";
+    let serverLoc = protoPrefix + hostname + ":" + port + "/";
     socket = new WebSocket(serverLoc);
     socket.onmessage = onWebSocketMessage;
     socket.onerror = function(event) {
