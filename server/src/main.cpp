@@ -5,6 +5,7 @@
 // on the other hand, allow for unreliable and unordered message sending via SCTP.
 //
 // Author: brian@brkho.com
+//         ceztko@gmail.com
 
 #include "observers.h"
 
@@ -35,12 +36,6 @@ using websocketpp::lib::bind;
 
 using namespace std;
 
-// Some forward declarations.
-void OnDataChannelCreated(webrtc::DataChannelInterface* channel);
-void OnIceCandidate(const webrtc::IceCandidateInterface* candidate);
-void OnDataChannelMessage(const webrtc::DataBuffer& buffer);
-void OnAnswerCreated(webrtc::SessionDescriptionInterface* desc);
-
 typedef websocketpp::server<websocketpp::config::asio> WebSocketServer;
 typedef WebSocketServer::message_ptr message_ptr;
 
@@ -60,30 +55,41 @@ websocketpp::connection_hdl websocket_connection_handler;
 rtc::scoped_refptr<webrtc::PeerConnectionInterface> peer_connection;
 // The data channel used to communicate.
 rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel;
-// The observer that responds to peer connection events.
-PeerConnectionObserver peer_connection_observer(OnDataChannelCreated, OnIceCandidate);
-// The observer that responds to data channel events.
-DataChannelObserver data_channel_observer(OnDataChannelMessage);
-// The observer that responds to session description creation events.
-CreateSessionDescriptionObserver create_session_description_observer(OnAnswerCreated);
-// The observer that responds to session description set events. We don't really use this one here.
 std::unique_ptr<rtc::BasicPacketSocketFactory> socket_factory;
-SetSessionDescriptionObserver set_session_description_observer;
 std::unique_ptr<rtc::Thread> network_thread;
 std::unique_ptr<rtc::Thread> worker_thread;
 rtc::BasicNetworkManager network_manager;
 
-// Callback for when the data channel is successfully created. We need to re-register the updated
-// data channel here.
-void OnDataChannelCreated(webrtc::DataChannelInterface* channel)
+class PeerConnectionObserverImpl : public PeerConnectionObserver
 {
-    cout << "OnDataChannelCreated" << endl;
-    data_channel = channel;
-    data_channel->RegisterObserver(&data_channel_observer);
-}
+public:
+    void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override;
+    void OnIceCandidate(const webrtc::IceCandidateInterface* candidate) override;
+};
+
+class DataChannelObserverImpl : public DataChannelObserver
+{
+public:
+    void OnMessage(const webrtc::DataBuffer& buffer) override;
+};
+
+class CreateSessionDescriptionObserverImpl : public CreateSessionDescriptionObserver
+{
+public:
+    void OnSuccess(webrtc::SessionDescriptionInterface* desc) override;
+};
+
+// The observer that responds to peer connection events.
+PeerConnectionObserverImpl peer_connection_observer;
+// The observer that responds to data channel events.
+DataChannelObserverImpl data_channel_observer;
+// The observer that responds to session description creation events.
+CreateSessionDescriptionObserverImpl create_session_description_observer;
+// The observer that responds to session description set events. We don't really use this one here.
+SetSessionDescriptionObserver set_session_description_observer;
 
 // Callback for when the STUN server responds with the ICE candidates.
-void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
+void PeerConnectionObserverImpl::OnIceCandidate(const webrtc::IceCandidateInterface *candidate)
 {
     std::string candidate_str;
     candidate->ToString(&candidate_str);
@@ -100,7 +106,7 @@ void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
     message_payload.AddMember("candidate", candidate_value, message_object.GetAllocator());
     message_payload.AddMember("sdpMid", sdp_mid_value, message_object.GetAllocator());
     message_payload.AddMember("sdpMLineIndex", candidate->sdp_mline_index(),
-                              message_object.GetAllocator());
+        message_object.GetAllocator());
     message_object.AddMember("payload", message_payload, message_object.GetAllocator());
     rapidjson::StringBuffer strbuf;
     rapidjson::Writer<rapidjson::StringBuffer> writer(strbuf);
@@ -110,14 +116,14 @@ void OnIceCandidate(const webrtc::IceCandidateInterface* candidate)
 }
 
 // Callback for when the server receives a message on the data channel.
-void OnDataChannelMessage(const webrtc::DataBuffer& buffer)
+void DataChannelObserverImpl::OnMessage(const webrtc::DataBuffer & buffer)
 {
     cout << "OnDataChannelMessage" << endl;
     data_channel->Send(buffer);
 }
 
 // Callback for when the answer is created. This sends the answer back to the client.
-void OnAnswerCreated(webrtc::SessionDescriptionInterface* desc)
+void CreateSessionDescriptionObserverImpl::OnSuccess(webrtc::SessionDescriptionInterface * desc)
 {
     peer_connection->SetLocalDescription(&set_session_description_observer, desc);
     // Apologies for the poor code ergonomics here; I think rapidjson is just verbose.
@@ -159,12 +165,6 @@ void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, mes
         auto allocator = std::make_unique<cricket::BasicPortAllocator>(&network_manager, socket_factory.get());
         peer_connection = peer_connection_factory->CreatePeerConnection(configuration, std::move(allocator), nullptr,
                           &peer_connection_observer);
-
-        //webrtc::DataChannelInit data_channel_config;
-        //data_channel_config.ordered = false;
-        //data_channel_config.maxRetransmits = 0;
-        //data_channel = peer_connection->CreateDataChannel("dc", &data_channel_config);
-        //data_channel->RegisterObserver(&data_channel_observer);
 
         webrtc::SdpParseError error;
         webrtc::SessionDescriptionInterface* session_description(
@@ -210,6 +210,15 @@ void SignalThreadEntry()
 
     socket_factory.reset(new rtc::BasicPacketSocketFactory(network_thread.get()));
     signaling_thread->Run();
+}
+
+// Callback for when the data channel is successfully created. We need to re-register the updated
+// data channel here.
+void PeerConnectionObserverImpl::OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel)
+{
+    cout << "OnDataChannel" << endl;
+    data_channel = channel;
+    data_channel->RegisterObserver(&data_channel_observer);
 }
 
 // Main entry point of the code.

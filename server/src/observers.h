@@ -1,120 +1,96 @@
-// No-op implementations of most webrtc::*Observer methods. For the ones we do care about in the
-// example, we supply a callback in the constructor.
+// No-op implementations of most webrtc::*Observer methods
 //
 // Author: brian@brkho.com
-
-#ifndef WEBRTC_EXAMPLE_SERVER_OBSERVERS_H
-#define WEBRTC_EXAMPLE_SERVER_OBSERVERS_H
+//         ceztko@gmail.com
+#pragma once
 
 #include <webrtc/api/peerconnectioninterface.h>
 
-#include <functional>
-
-// PeerConnection events.
-class PeerConnectionObserver : public webrtc::PeerConnectionObserver {
+class PeerConnectionObserver : public webrtc::PeerConnectionObserver
+{
   public:
-    // Constructor taking a few callbacks.
-    PeerConnectionObserver(std::function<void(webrtc::DataChannelInterface*)> on_data_channel,
-        std::function<void(const webrtc::IceCandidateInterface*)> on_ice_candidate) :
-        on_data_channel{on_data_channel}, on_ice_candidate{on_ice_candidate} {}
-
-    // Override signaling change.
-    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState /* new_state */) override {}
-
-    // Override adding a stream.
-    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> ) override {}
-
-    // Override removing a stream.
-    void OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface>) override {}
-
-    // Override data channel change.
-    void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override {
-      on_data_channel(channel);
+    void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState stream) override
+    {
+        (void)stream;
     }
 
-    // Override renegotiation.
-    void OnRenegotiationNeeded() override {}
-
-    // Override ICE connection change.
-    void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState /* new_state */) override {}
-
-    // Override ICE gathering change.
-    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState /* new_state */) override {}
-
-    // Override ICE candidate.
-    void OnIceCandidate(const webrtc::IceCandidateInterface* candidate) {
-      on_ice_candidate(candidate);
+    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override
+    {
+        (void)stream;
     }
 
-  private:
-    std::function<void(webrtc::DataChannelInterface*)> on_data_channel;
-    std::function<void(const webrtc::IceCandidateInterface*)> on_ice_candidate;
+    void OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override
+    {
+        (void)stream;
+    }
+
+    void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override
+    {
+        (void)channel;
+    }
+
+    void OnRenegotiationNeeded() override { }
+
+    void OnIceConnectionChange(webrtc::PeerConnectionInterface::IceConnectionState new_state) override
+    {
+        (void)new_state;
+    }
+
+    void OnIceGatheringChange(webrtc::PeerConnectionInterface::IceGatheringState new_state) override
+    {
+        (void)new_state;
+    }
+
+    void OnIceCandidate(const webrtc::IceCandidateInterface* candidate) { }
 };
 
-// DataChannel events.
-class DataChannelObserver : public webrtc::DataChannelObserver {
+class DataChannelObserver : public webrtc::DataChannelObserver
+{
   public:
-    // Constructor taking a callback.
-    DataChannelObserver(std::function<void(const webrtc::DataBuffer&)> on_message) :
-        on_message{on_message} {}
-
-    // Change in state of the Data Channel.
-    void OnStateChange() override {}
+    void OnStateChange() override { }
     
-    // Message received.
-    void OnMessage(const webrtc::DataBuffer& buffer) override {
-      on_message(buffer);
+    void OnMessage(const webrtc::DataBuffer& buffer) override
+    {
+        (void)buffer;
     }
 
-    // Buffered amount change.
-    void OnBufferedAmountChange(uint64_t /* previous_amount */) override {}
-
-  private:
-    std::function<void(const webrtc::DataBuffer&)> on_message;
+    void OnBufferedAmountChange(uint64_t previous_amount) override
+    {
+        (void)previous_amount;
+    }
 };
 
-// Create SessionDescription events.
-class CreateSessionDescriptionObserver : public webrtc::CreateSessionDescriptionObserver {
+class CreateSessionDescriptionObserver : public webrtc::CreateSessionDescriptionObserver
+{
   public:
-    // Constructor taking a callback.
-    CreateSessionDescriptionObserver(std::function<void(webrtc::SessionDescriptionInterface*)>
-        on_success) : on_success{on_success} {}
-  
-    // Successfully created a session description.
-    void OnSuccess(webrtc::SessionDescriptionInterface* desc) {
-      on_success(desc);
+    void OnSuccess(webrtc::SessionDescriptionInterface* desc)
+    {
+        (void)desc;
     }
 
-    // Failure to create a session description.
-    void OnFailure(const std::string& /* error */) {}
+    void OnFailure(const std::string& error)
+    {
+        (void)error;
+    }
 
-    // Unimplemented virtual function.
     int AddRef() const { return 0; }
 
-    // Unimplemented virtual function.
     int Release() const { return 0; }
-
-  private:
-    std::function<void(webrtc::SessionDescriptionInterface*)> on_success;
 };
 
-// Set SessionDescription events.
-class SetSessionDescriptionObserver : public webrtc::SetSessionDescriptionObserver {
+class SetSessionDescriptionObserver : public webrtc::SetSessionDescriptionObserver
+{
   public:
-    // Default constructor.
-    SetSessionDescriptionObserver() {}
+    SetSessionDescriptionObserver() { }
 
-    // Successfully set a session description.
     void OnSuccess() {}
 
-    // Failure to set a sesion description.
-    void OnFailure(const std::string& /* error */) {}
+    void OnFailure(const std::string& error)
+    {
+        (void)error;
+    }
 
-    // Unimplemented virtual function.
     int AddRef() const { return 0; }
 
-    // Unimplemented virtual function.
     int Release() const { return 0; }
 };
-
-#endif  // WEBRTC_EXAMPLE_SERVER_OBSERVERS_H

@@ -9,8 +9,6 @@
  * brian@brkho.com
  */
 
-// URL to the server with the port we are using for WebSockets.
-const webSocketUrl = 'ws://remotehost:8080';
 // The WebSocket object used to manage a connection.
 let webSocketConnection = null;
 // The RTCPeerConnection through which we engage in the SDP handshake.
@@ -81,7 +79,7 @@ function onWebSocketMessage(event) {
 }
 
 // Connects by creating a new WebSocket connection and associating some callbacks.
-function connect() {
+function connectHost(webSocketUrl) {
     webSocketConnection = new WebSocket(webSocketUrl);
     webSocketConnection.onopen = onWebSocketOpen;
     webSocketConnection.onmessage = onWebSocketMessage;

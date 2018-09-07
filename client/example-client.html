@@ -10,10 +10,15 @@ brian@brkho.com
   <head>
     <meta charset="utf-8">
     <title>Example Client</title>
-    <script src="example-client.js"></script>
   </head>
   <body>
+    <input type="text" id="hostname" value="192.168.1.90"> 
     <button onclick="connect()">Connect</button>
-    <button onclick="ping()">Ping</button>
+    <script>
+      function connect() {
+        connectHost("ws://" + document.getElementById("hostname").value + ":8080")
+      }
+    </script>
+    <script src="example-client.js"></script>
   </body>
 </html>
