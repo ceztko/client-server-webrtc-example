@@ -20,11 +20,12 @@ let dataChannel = null;
 function onDataChannelMessage(event) {
     console.log('DataChannelMessage');
     console.log(event.data)
+    document.getElementById("response").innerHTML = event.data
 }
 
 function onDataChannelOpen(event) {
     console.log('DataChannelOpen');
-    dataChannel.send("OK");
+    dataChannel.send("PING");
 }
 
 function onDataChannelError(error) {

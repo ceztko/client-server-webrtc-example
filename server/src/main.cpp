@@ -119,7 +119,9 @@ void PeerConnectionObserverImpl::OnIceCandidate(const webrtc::IceCandidateInterf
 void DataChannelObserverImpl::OnMessage(const webrtc::DataBuffer & buffer)
 {
     cout << "OnDataChannelMessage" << endl;
-    data_channel->Send(buffer);
+    cout << string((char *)buffer.data.data(), buffer.data.size()) << endl;
+    webrtc::DataBuffer answer("PONG");
+    data_channel->Send(answer);
 }
 
 // Callback for when the answer is created. This sends the answer back to the client.

@@ -14,6 +14,7 @@ brian@brkho.com
   <body>
     <input type="text" id="hostname" value="192.168.1.90"> 
     <button onclick="connect()">Connect</button>
+    <label id="response" />
     <script>
       function connect() {
         connectHost("ws://" + document.getElementById("hostname").value + ":8080")
