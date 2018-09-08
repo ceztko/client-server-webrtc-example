@@ -35,7 +35,7 @@ function onDataChannelError(error) {
 // Callback for when the STUN server responds with the ICE candidates.
 function onIceCandidate(event) {
     if (event && event.candidate) {
-      webSocketConnection.send(JSON.stringify({type: 'candidate', payload: event.candidate}));
+      webSocketConnection.send(JSON.stringify({ messageType: 'candidate', payload: event.candidate }));
       console.log(event.candidate)
     }
 }
@@ -43,7 +43,7 @@ function onIceCandidate(event) {
 // Callback for when the SDP offer was successfully created.
 function onOfferFulfilled(description) {
     rtcPeerConnection.setLocalDescription(description);
-    webSocketConnection.send(JSON.stringify({type: 'offer', payload: description}));
+    webSocketConnection.send(JSON.stringify({ messageType: 'offer', payload: description }));
 }
 
 function onOfferRejected(reason) {
@@ -72,16 +72,19 @@ function onWebSocketOpen() {
 // Callback for when we receive a message from the server via the WebSocket.
 function onWebSocketMessage(event) {
     const messageObject = JSON.parse(event.data);
-    if (messageObject.type === 'answer') {
+    if (messageObject.messageType === 'answer') {
         rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(messageObject.payload));
-    } else if (messageObject.type === 'candidate') {
+    } else if (messageObject.messageType === 'candidate') {
         rtcPeerConnection.addIceCandidate(new RTCIceCandidate(messageObject.payload));
         console.log(messageObject.payload)
     }
 }
 
 // Connects by creating a new WebSocket connection and associating some callbacks.
-function connectHost(webSocketUrl) {
+function connect(hostname, port, usehttps)
+{
+    let protoPrefix = usehttps ? "wss://" : "ws://";
+    let webSocketUrl = protoPrefix + hostname + ":" + port + "/";
     webSocketConnection = new WebSocket(webSocketUrl);
     webSocketConnection.onopen = onWebSocketOpen;
     webSocketConnection.onmessage = onWebSocketMessage;

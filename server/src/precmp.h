@@ -5,9 +5,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <Windows.h>
 
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <webrtc/api/peerconnectioninterface.h>
 #include <webrtc/pc/peerconnectionfactory.h>
 #include <webrtc/base/physicalsocketserver.h>

@@ -12,12 +12,38 @@ brian@brkho.com
     <title>Example Client</title>
   </head>
   <body>
-    <input type="text" id="hostname" value="192.168.1.90"> 
-    <button onclick="connect()">Connect</button>
+      <div>
+        <label>https</label>
+        <input type="checkbox" id="usehttps" />
+        <label>host</label>
+        <input type="text" id="hostname" />
+        <label>port</label>
+        <input type="text" id="port" />
+      </div>
+    <button onclick="onBtnConnectClick()">Connect</button>
     <label id="response" />
     <script>
-      function connect() {
-        connectHost("ws://" + document.getElementById("hostname").value + ":8080")
+      var $ = function( id ) { return document.getElementById( id ); }; 
+    
+      window.onload = onLoad();
+      
+      function onLoad()
+      {
+        $("hostname").value = localStorage.getItem("hostname");
+        $("port").value = localStorage.getItem("port");
+        let checked = localStorage.getItem("usehttps");
+        $("usehttps").checked = checked === "true" ? true : false;
+      }
+    
+      function onBtnConnectClick()
+      {
+        let hostname = $("hostname").value;
+        let port = $("port").value;
+        let usehttps = $("usehttps").checked;
+        localStorage.setItem("hostname", $("hostname").value);
+        localStorage.setItem("port", $("port").value);
+        localStorage.setItem("usehttps", $("usehttps").checked);
+        connect(hostname, port, usehttps);
       }
     </script>
     <script src="example-client.js"></script>

@@ -9,9 +9,6 @@
 
 #include "observers.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <webrtc/api/peerconnectioninterface.h>
 #include <webrtc/pc/peerconnectionfactory.h>
 #include <webrtc/base/physicalsocketserver.h>
@@ -25,6 +22,7 @@
 
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/server.hpp>
+#include <webrtc/common_video/libyuv/include/webrtc_libyuv.h>
 #include <nlohmann/json.hpp>
 
 #include <iostream>
@@ -61,12 +59,20 @@ std::unique_ptr<rtc::BasicPacketSocketFactory> socket_factory;
 std::unique_ptr<rtc::Thread> network_thread;
 std::unique_ptr<rtc::Thread> worker_thread;
 rtc::BasicNetworkManager network_manager;
+rtc::scoped_refptr<webrtc::VideoTrackInterface> video_track;
+
+class VideoSink : public rtc::VideoSinkInterface<webrtc::VideoFrame>
+{
+public:
+    void OnFrame(const webrtc::VideoFrame &frame) override;
+};
 
 class PeerConnectionObserverImpl : public PeerConnectionObserver
 {
 public:
     void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> channel) override;
     void OnIceCandidate(const webrtc::IceCandidateInterface* candidate) override;
+    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override;
 };
 
 class DataChannelObserverImpl : public DataChannelObserver
@@ -90,19 +96,28 @@ CreateSessionDescriptionObserverImpl create_session_description_observer;
 // The observer that responds to session description set events. We don't really use this one here.
 SetSessionDescriptionObserver set_session_description_observer;
 
+VideoSink video_sink;
+
 // Callback for when the STUN server responds with the ICE candidates.
 void PeerConnectionObserverImpl::OnIceCandidate(const webrtc::IceCandidateInterface *candidate)
 {
     std::string candidate_str;
     candidate->ToString(&candidate_str);
     json message_object;
-    message_object["type"] = "candidate";
+    message_object["messageType"] = "candidate";
     json message_payload;
     message_payload["candidate"] = candidate_str;
     message_payload["sdpMid"] = candidate->sdp_mid();
     message_payload["sdpMLineIndex"] = candidate->sdp_mline_index();
     message_object["payload"] = message_payload;
     ws_server.send(websocket_connection_handler, message_object.dump(), websocketpp::frame::opcode::value::text);
+}
+
+void PeerConnectionObserverImpl::OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream)
+{
+    video_track = stream->GetVideoTracks()[0];
+    rtc::VideoSinkWants wants;
+    video_track->AddOrUpdateSink(&video_sink, wants);
 }
 
 // Callback for when the server receives a message on the data channel.
@@ -121,7 +136,7 @@ void CreateSessionDescriptionObserverImpl::OnSuccess(webrtc::SessionDescriptionI
     std::string offer_string;
     desc->ToString(&offer_string);
     json message_object;
-    message_object["type"] = "answer";
+    message_object["messageType"] = "answer";
     json message_payload;
     message_payload["type"] = "answer";
     message_payload["sdp"] = offer_string;
@@ -134,7 +149,7 @@ void OnWebSocketMessage(WebSocketServer* s, websocketpp::connection_hdl hdl, mes
 {
     websocket_connection_handler = hdl;
     json message_object = json::parse(msg->get_payload());
-    std::string type = message_object["type"];
+    std::string type = message_object["messageType"];
     if (type == "offer")
     {
         std::string sdp = message_object["payload"]["sdp"];
@@ -204,6 +219,18 @@ void PeerConnectionObserverImpl::OnDataChannel(rtc::scoped_refptr<webrtc::DataCh
     cout << "OnDataChannel" << endl;
     data_channel = channel;
     data_channel->RegisterObserver(&data_channel_observer);
+}
+
+int i = 0;
+void VideoSink::OnFrame(const webrtc::VideoFrame & frame)
+{
+    auto buffer = frame.video_frame_buffer();
+    FILE *fp;
+    string filename = "frame" + i;
+    fp = fopen((string("D:\\") + filename + ".raw").c_str(), "w");
+    webrtc::PrintVideoFrame(*buffer, fp);
+    fclose(fp);
+    i++;
 }
 
 // Main entry point of the code.

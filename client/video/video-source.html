@@ -66,9 +66,9 @@
   
   function onLoad()
   {
-    $("hostname").value = localStorage.getItem('hostname');
-    $("port").value = localStorage.getItem('hostname');
-    let checked = localStorage.getItem('usehttps');
+    $("hostname").value = localStorage.getItem("hostname");
+    $("port").value = localStorage.getItem("port");
+    let checked = localStorage.getItem("usehttps");
     $("usehttps").checked = checked === "true" ? true : false;
     startMedia();  
   }
@@ -78,9 +78,9 @@
     let hostname = $("hostname").value;
     let port = $("port").value;
     let usehttps = $("usehttps").checked;
-    localStorage['hostname'] = $("hostname").value;
-    localStorage['hostname'] = $("port").value;
-    localStorage['usehttps'] = $("usehttps").checked;
+    localStorage.setItem("hostname", $("hostname").value);
+    localStorage.setItem("port", $("port").value);
+    localStorage.setItem("usehttps", $("usehttps").checked);
     
     connect(hostname, port, usehttps);
   }
@@ -152,7 +152,7 @@
 
     socket.send(JSON.stringify({
       "messageType": "offer",
-      "peerDescription": sessionDescription
+      "payload": sessionDescription
     }));
   }
 
@@ -201,14 +201,13 @@
     {
       console.log("Received answer...");
       console.log("Setting remote session description..." );
-      var remoteDescription = message.peerDescription;
-      pc.setRemoteDescription(new RTCSessionDescription(remoteDescription));
+      pc.setRemoteDescription(new RTCSessionDescription(message.payload));
 
     }
-    else if (message.messageType === "iceCandidate")
+    else if (message.messageType === "candidate")
     {
       console.log("Received ICE candidate...");
-      var candidate = new RTCIceCandidate(message.candidate);
+      var candidate = new RTCIceCandidate(message.payload);
       pc.addIceCandidate(candidate);
     }
     else if (message.messageType === "bye")
@@ -243,8 +242,8 @@
       console.log("Sending ICE candidate...");
       console.log(evt.candidate);
       socket.send(JSON.stringify({
-        "messageType": "iceCandidate",
-        "candidate": evt.candidate 
+        "messageType": "candidate",
+        "payload": evt.candidate 
       }));   
     }
     else

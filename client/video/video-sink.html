@@ -67,7 +67,7 @@
 
     socket.send(JSON.stringify({
       "messageType": "answer",
-      "peerDescription": sessionDescription
+      "payload": sessionDescription
     }));
   }
 
@@ -94,8 +94,7 @@
       createPeerConnection();
       console.log("Creating remote session description..." );
 
-      var remoteDescription = message.peerDescription;
-      pc.setRemoteDescription(new RTCSessionDescription(remoteDescription), function() {
+      pc.setRemoteDescription(new RTCSessionDescription(message.payload), function() {
         console.log("Sending answer...");
         pc.createAnswer(setLocalDescAndSendMessageAnswer, onCreateAnswerFailed);
       }, function() {
@@ -103,10 +102,10 @@
       });
 
     }
-    else if (message.messageType === "iceCandidate")
+    else if (message.messageType === "candidate")
     {
       console.log("Received ICE candidate...");
-      var candidate = new RTCIceCandidate(message.candidate);
+      var candidate = new RTCIceCandidate(message.payload);
       pc.addIceCandidate(candidate );
 
     }
@@ -138,8 +137,8 @@
       console.log(evt.candidate);
 
       socket.send(JSON.stringify({
-        "messageType": "iceCandidate",
-        "candidate": evt.candidate
+        "messageType": "candidate",
+        "payload": evt.candidate
       }));
     }
     else
